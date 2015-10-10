@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"os"
 	"text/template"
+	"bufio"
+	"strings"
+	"log"
 )
 
 func main() {
@@ -19,7 +22,38 @@ func main() {
 			}
 		})
 
+	http.HandleFunc("/img/", serveResource)
+	http.HandleFunc("/css/", serveResource)
+
 	http.ListenAndServe(":8000", nil)
+}
+
+func serveResource(w http.ResponseWriter, req *http.Request) {
+	path := "public" + req.URL.Path
+	log.Println("requesting file", path)
+	var contentType string
+	if strings.HasSuffix(path, ".css") {
+		log.Println("setting content type to css")
+		contentType = "text/css"
+	} else if strings.HasSuffix(path, ".png") {
+		log.Println("setting content type to png")
+		contentType = "image/png"
+	} else {
+		log.Println("setting content type to plain text")
+		contentType = "text/plain"
+	}
+
+	f, err := os.Open(path)
+
+	if err == nil {
+		defer f.Close()
+		w.Header().Add("Content-Type", contentType)
+		br := bufio.NewReader(f)
+		br.WriteTo(w)
+	} else {
+		log.Println("requested file not found")
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
 
 func populateTemplates() *template.Template {
